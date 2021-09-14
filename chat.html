@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        @import url("/chat.css");
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="chatView">
+            <div class="wrap">
+                <button class="addButton" onclick="addFunction()">더보기 +</button>
+            </div>
+        </div>
+        <form id="chatForm" onsubmit="return false">
+            <input type="text" id="userName">
+            <input type="text" id="msg">
+            <input type="submit" id="send" value="전송">
+        </form>
+
+        <input id="firstId" type="hidden" value="" />
+    </div>
+    
+ 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+ 
+    <script>
+        var socket = io();
+            
+        var chatView = document.getElementById('chatView');
+        var chatForm = document.getElementById('chatForm');
+     
+        // 채팅 입력시 event
+        chatForm.addEventListener('submit', function() {
+            var msg = $('#msg');
+            var userName = $('#userName');
+
+            if (msg.val() == '' || userName.val() == '') {
+                alert('필수항목이 누락되어 있습니다!');
+                return;
+                    
+            } else {
+
+                // 작성자 화면에 반영
+                var today = new Date();
+                var year = today.getFullYear();
+                var month = ('0' + (today.getMonth() + 1)).slice(-2);
+                var day = ('0' + today.getDate()).slice(-2);
+                var hours = ('0' + today.getHours()).slice(-2); 
+                var minutes = ('0' + today.getMinutes()).slice(-2);
+                var seconds = ('0' + today.getSeconds()).slice(-2); 
+
+                var timeString = year + '-' + month  + '-' + day + ' ' +hours + ':' + minutes  + ':' + seconds;
+     
+                var msgLine = $('<div class="msgLine">');
+                var msgBox = $('<div class="msgBox">');
+                var msgTime = $('<div class="msgTime">');
+     
+                msgBox.append(userName.val()+': ');
+                msgBox.append(msg.val());
+                msgBox.css('display', 'inline-block');
+
+                msgTime.append(timeString);
+                msgTime.css('display', 'inline-block');
+     
+                msgLine.css('text-align', 'right');
+                msgLine.append(msgBox);
+                msgLine.append(msgTime);
+     
+                $('#chatView').append(msgLine);
+     
+                socket.emit('SEND', msg.val(), userName.val(), timeString);
+
+                msg.val('');
+                userName.val('');
+
+                chatView.scrollTop = chatView.scrollHeight;
+            }
+        });
+     
+        // 수신자 화면에 반영
+        socket.on('SEND', function(msg,userName,time) {
+            var msgLine = $('<div class="msgLine">');
+            var msgBox = $('<div class="msgBox">');
+            var msgTime = $('<div class="msgTime">');
+                 
+            msgBox.append(userName+": ")
+            msgBox.append(msg);
+            msgBox.css('display', 'inline-block');
+
+            msgTime.append(time);
+            msgTime.css('display', 'inline-block');
+     
+            msgLine.append(msgBox);
+            msgLine.append(msgTime);
+            $('#chatView').append(msgLine);
+     
+            chatView.scrollTop = chatView.scrollHeight;
+        });
+
+        
+        // 더보기 기능 Response반영
+        socket.on('addResponse', function(result) {
+            result.forEach(element => {
+                var msgLine = $('<div class="msgLine">');
+                var msgBox = $('<div class="msgBox">');
+                var msgTime = $('<div class="msgTime">');
+                    
+                msgBox.append(element.name+": ");
+                msgBox.append(element.contents);
+                msgBox.css('display', 'inline-block');
+        
+                msgTime.append(element.sendDate);
+                msgTime.css('display', 'inline-block');
+
+                msgLine.append(msgBox);
+                msgLine.append(msgTime);
+                $('.wrap').after(msgLine);
+
+                $('#firstId').val(element.id);
+
+            })
+
+            if($('#firstId').val()==1){
+                $('.wrap').hide();
+            }
+        });
+
+        // 접속시 이전 대화내용 호출
+        socket.on('INIT', function(result) {
+            result = result.reverse();
+            
+            $("#firstId").val(result[0].id);
+
+            result.forEach(element => {
+                var msgLine = $('<div class="msgLine">');
+                var msgBox = $('<div class="msgBox">');
+                var msgTime = $('<div class="msgTime">');
+                    
+                msgBox.append(element.name+": ");
+                msgBox.append(element.contents);
+                msgBox.css('display', 'inline-block');
+        
+                msgTime.append(element.sendDate);
+                msgTime.css('display', 'inline-block');
+
+                msgLine.append(msgBox);
+                msgLine.append(msgTime);
+                $('#chatView').append(msgLine);
+
+                chatView.scrollTop = chatView.scrollHeight;
+            })
+        });
+
+        // 더보기 정보 요청
+        function addFunction(){
+            socket.emit('addList',$('#firstId').val());
+        }
+
+    </script>
+    
+</body>
+
+</html>
